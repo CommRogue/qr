@@ -16,8 +16,11 @@ shows each image sequentially so it can be scanned.
 ### Decode QR codes back into a file
 
 ```bash
-uv run qr decode qrs/archive_*.png --output restored.zip
+uv run qr decode qrs/ --output restored.zip
 ```
 
-The images are read, ordered automatically, and the original file is restored.
-If `--output` is omitted, the original filename embedded in the QR data is used.
+You can pass individual image paths or a directory containing the images. The
+images are read, ordered automatically, and the original file is restored.
+The decoder is tolerant of typical phone camera photos where the QR code does
+not perfectly fill the frame. If `--output` is omitted, the original filename
+embedded in the QR data is used.
