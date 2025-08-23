@@ -9,6 +9,7 @@ dependencies = [
     "qrcode[pil]",
     "opencv-python-headless",
     "pillow",
+    "pyzbar",
 ]
 
 [project.scripts]

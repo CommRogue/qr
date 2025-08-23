@@ -60,20 +60,46 @@ def encode(
 
 @app.command()
 def decode(
-    images: List[Path] = typer.Argument(..., exists=True, dir_okay=False, readable=True),
+    images: List[Path] = typer.Argument(
+        ..., exists=True, readable=True, dir_okay=True
+    ),
     output: Path | None = typer.Option(None, help="Output file path."),
 ) -> None:
     """Decode QR code images back into the original file."""
     chunks: dict[int, bytes] = {}
     total_expected: int | None = None
 
+    # Gather all image paths, expanding directories.
+    image_paths: List[Path] = []
+    exts = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".tif", ".tiff"}
+    for p in images:
+        if p.is_dir():
+            for ext in exts:
+                image_paths.extend(sorted(p.glob(f"*{ext}")))
+        else:
+            image_paths.append(p)
+
+    if not image_paths:
+        raise typer.BadParameter("No image files provided")
+
     detector = cv2.QRCodeDetector()
-    for path in images:
+    try:
+        from pyzbar.pyzbar import decode as zbar_decode
+    except Exception:  # pragma: no cover - optional dependency
+        zbar_decode = None
+
+    for path in sorted(image_paths):
         img = cv2.imread(str(path))
         if img is None:
             raise typer.BadParameter(f"Could not read {path}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        data, points, _ = detector.detectAndDecode(gray)
+        data, _, _ = detector.detectAndDecode(gray)
+        if not data:
+            data, _, _ = detector.detectAndDecode(img)
+        if not data and zbar_decode is not None:
+            decoded = zbar_decode(img)
+            if decoded:
+                data = decoded[0].data.decode("ascii")
         if not data:
             raise typer.BadParameter(f"Could not decode {path}")
         raw = base64.b64decode(data.encode("ascii"))
