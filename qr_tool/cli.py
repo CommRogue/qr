@@ -84,7 +84,7 @@ def decode(
 
     detector = cv2.QRCodeDetector()
     try:
-        from pyzbar.pyzbar import decode as zbar_decode
+        from pyzbar.pyzbar import decode as zbar_decode, ZBarSymbol
     except Exception:  # pragma: no cover - optional dependency
         zbar_decode = None
 
@@ -97,7 +97,7 @@ def decode(
         if not data:
             data, _, _ = detector.detectAndDecode(img)
         if not data and zbar_decode is not None:
-            decoded = zbar_decode(img)
+            decoded = zbar_decode(gray, symbols=[ZBarSymbol.QRCODE])
             if decoded:
                 data = decoded[0].data.decode("ascii")
         if not data:
