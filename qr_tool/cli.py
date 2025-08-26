@@ -43,7 +43,7 @@ def _display_qr_codes(paths: list[Path]) -> None:
 
     def show() -> None:
         nonlocal photo
-        img = Image.open(paths[idx])
+        img = Image.open(paths[idx]).resize((800, 800))
         photo = ImageTk.PhotoImage(img)
         label.config(image=photo)
         info.config(
