@@ -11,7 +11,8 @@ uv run qr encode archive.zip --output-dir qrs
 ```
 
 This command splits `archive.zip` into multiple QR images stored in `qrs/` and
-shows each image sequentially so it can be scanned.
+opens an interactive viewer so they can be scanned. Press Enter or the right
+arrow to advance to the next code, or the left arrow to go back.
 
 ### Decode QR codes back into a file
 

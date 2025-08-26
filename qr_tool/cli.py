@@ -24,6 +24,48 @@ def _maybe_compress(data: bytes) -> tuple[bytes, bool]:
     return data, False
 
 
+def _display_qr_codes(paths: list[Path]) -> None:
+    """Simple Tkinter viewer to browse QR code images."""
+    import tkinter as tk
+    from PIL import Image, ImageTk
+
+    root = tk.Tk()
+    root.title("QR Codes")
+    root.configure(background="white")
+
+    label = tk.Label(root, bg="white")
+    label.pack(padx=20, pady=20)
+    info = tk.Label(root, bg="white")
+    info.pack(pady=10)
+
+    idx = 0
+    photo: ImageTk.PhotoImage | None = None
+
+    def show() -> None:
+        nonlocal photo
+        img = Image.open(paths[idx])
+        photo = ImageTk.PhotoImage(img)
+        label.config(image=photo)
+        info.config(
+            text=f"{idx + 1}/{len(paths)} - Enter/→ next, ← previous, Esc to quit"
+        )
+
+    def on_key(event: tk.Event) -> None:
+        nonlocal idx
+        if event.keysym in ("Return", "Right") and idx + 1 < len(paths):
+            idx += 1
+            show()
+        elif event.keysym == "Left" and idx > 0:
+            idx -= 1
+            show()
+        elif event.keysym in ("Escape", "q"):
+            root.destroy()
+
+    root.bind("<Key>", on_key)
+    show()
+    root.mainloop()
+
+
 @app.command()
 def encode(
     file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
@@ -42,6 +84,7 @@ def encode(
     output_dir.mkdir(parents=True, exist_ok=True)
     typer.echo(f"Encoding {len(data)} bytes into {total_chunks} QR codes...")
 
+    paths: list[Path] = []
     for idx in range(total_chunks):
         chunk = payload[idx * CHUNK_SIZE : (idx + 1) * CHUNK_SIZE]
         header = struct.pack(">HH", idx, total_chunks)
@@ -53,10 +96,11 @@ def encode(
         img_path = output_dir / f"{file.stem}_{idx:04d}.png"
         img.save(img_path)
         typer.echo(f"Saved {img_path}")
-        if display:
-            img.show()
-            if idx + 1 < total_chunks:
-                typer.prompt("Scan this code and press Enter for next", default="", prompt_suffix="")
+        paths.append(img_path)
+
+    if display and paths:
+        typer.echo("Opening QR code viewer. Use Enter/→ for next, ← for previous.")
+        _display_qr_codes(paths)
 
 
 @app.command()
