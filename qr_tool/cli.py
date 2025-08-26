@@ -1,6 +1,10 @@
 import base64
+import io
 import math
+import os
+import re
 import struct
+import tarfile
 import zlib
 from pathlib import Path
 from typing import List
@@ -26,15 +30,50 @@ def _maybe_compress(data: bytes) -> tuple[bytes, bool]:
 
 @app.command()
 def encode(
-    file: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True),
+    path: Path = typer.Argument(..., exists=True, dir_okay=True, readable=True),
     output_dir: Path = typer.Option(Path("qr_output"), help="Directory to write QR images."),
     display: bool = typer.Option(True, help="Display each QR code for scanning."),
+    exclude: str | None = typer.Option(None, "--exclude", help="Regex of file or directory names to skip."),
+    include: str | None = typer.Option(None, "--include", help="Regex of file or directory names to allow."),
 ) -> None:
-    """Encode FILE into a sequence of QR codes."""
-    data = file.read_bytes()
+    """Encode PATH into a sequence of QR codes."""
+
+    exc = re.compile(exclude) if exclude else None
+    inc = re.compile(include) if include else None
+
+    if path.is_dir():
+        added = False
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            for root, dirs, files in os.walk(path):
+                dirs[:] = [
+                    d
+                    for d in dirs
+                    if not (exc and exc.search(d)) and (not inc or inc.search(d))
+                ]
+                for name in files:
+                    if exc and exc.search(name):
+                        continue
+                    if inc and not inc.search(name):
+                        continue
+                    full = Path(root) / name
+                    tar.add(full, arcname=str(full.relative_to(path)))
+                    added = True
+        if not added:
+            raise typer.BadParameter("No files to encode after filtering")
+        data = buf.getvalue()
+        file_name = f"{path.name}.tar"
+    else:
+        if exc and exc.search(path.name):
+            raise typer.BadParameter("File excluded by pattern")
+        if inc and not inc.search(path.name):
+            raise typer.BadParameter("File does not match include pattern")
+        data = path.read_bytes()
+        file_name = path.name
+
     payload, compressed = _maybe_compress(data)
 
-    name_bytes = file.name.encode("utf-8")
+    name_bytes = file_name.encode("utf-8")
     meta = len(name_bytes).to_bytes(2, "big") + name_bytes + (b"\x01" if compressed else b"\x00")
     payload = meta + payload
 
@@ -50,7 +89,7 @@ def encode(
         qr.add_data(b64)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white")
-        img_path = output_dir / f"{file.stem}_{idx:04d}.png"
+        img_path = output_dir / f"{Path(file_name).stem}_{idx:04d}.png"
         img.save(img_path)
         typer.echo(f"Saved {img_path}")
         if display:
@@ -110,6 +149,7 @@ def decode(
         file_data = zlib.decompress(file_data)
 
     out_path = output or Path(name)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(file_data)
     typer.echo(f"Wrote {out_path} ({len(file_data)} bytes)")
 

@@ -4,14 +4,22 @@ CLI tool to convert files to and from sequences of QR codes.
 
 ## Usage
 
-### Encode a file into QR codes
+### Encode a file or directory into QR codes
 
 ```bash
 uv run qr encode archive.zip --output-dir qrs
 ```
 
 This command splits `archive.zip` into multiple QR images stored in `qrs/` and
-shows each image sequentially so it can be scanned.
+shows each image sequentially so it can be scanned. When the input is a
+directory it is first archived, and you can filter paths during this step:
+
+```bash
+uv run qr encode project/ --exclude "\.git" --include "\.py$" --output-dir qrs
+```
+
+The example encodes only `.py` files under `project/`, skipping any paths that
+match the `--exclude` pattern.
 
 ### Decode QR codes back into a file
 
