@@ -4,6 +4,7 @@ import struct
 import zlib
 from pathlib import Path
 from typing import List
+from qreader import QReader
 
 import cv2
 import qrcode
@@ -79,29 +80,15 @@ def decode(
         else:
             image_paths.append(p)
 
+    qreader = QReader()
     if not image_paths:
         raise typer.BadParameter("No image files provided")
 
-    detector = cv2.QRCodeDetector()
-    try:
-        from pyzbar.pyzbar import decode as zbar_decode, ZBarSymbol
-    except Exception:  # pragma: no cover - optional dependency
-        zbar_decode = None
-
     for path in sorted(image_paths):
-        img = cv2.imread(str(path))
+        img = cv2.cvtColor(cv2.imread(str(path)), cv2.COLOR_BGR2RGB)
         if img is None:
             raise typer.BadParameter(f"Could not read {path}")
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        data, _, _ = detector.detectAndDecode(gray)
-        if not data:
-            data, _, _ = detector.detectAndDecode(img)
-        if not data and zbar_decode is not None:
-            decoded = zbar_decode(gray, symbols=[ZBarSymbol.QRCODE])
-            if decoded:
-                data = decoded[0].data.decode("ascii")
-        if not data:
-            raise typer.BadParameter(f"Could not decode {path}")
+        data = qreader.detect_and_decode(image=img)[0]
         raw = base64.b64decode(data.encode("ascii"))
         idx, total = struct.unpack(">HH", raw[:4])
         chunk = raw[4:]

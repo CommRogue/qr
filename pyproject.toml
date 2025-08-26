@@ -10,6 +10,7 @@ dependencies = [
     "opencv-python-headless",
     "pillow",
     "pyzbar",
+    "qreader>=3.16",
 ]
 
 [project.scripts]
